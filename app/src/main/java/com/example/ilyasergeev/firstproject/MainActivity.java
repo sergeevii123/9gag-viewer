@@ -1,17 +1,23 @@
 package com.example.ilyasergeev.firstproject;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.AsyncTask;
+import android.os.SystemClock;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.ArrayAdapter;
+import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
+import org.apache.http.HttpStatus;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
@@ -25,6 +31,9 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLConnection;
 import java.text.DateFormat;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
@@ -37,7 +46,8 @@ import java.util.List;
 
 
 public class MainActivity extends ActionBarActivity {
-
+    ArrayList<String> theList;
+    ArrayList<Bitmap> images;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -47,21 +57,23 @@ public class MainActivity extends ActionBarActivity {
             arrayList.add("a"+i);
         }*/
         final Context s = this;
+
         AsyncTask <ArrayList<String>, Void, ArrayList<String>> asyncTask = new AsyncTask<ArrayList<String>, Void, ArrayList<String>>() {
             private HttpClient httpClient;
             private HttpGet httpGet;
-            private ArrayList<String> theList;
+
 
             @Override
             protected void onPreExecute() {
                 super.onPreExecute();
                 httpClient = new DefaultHttpClient();
-                httpGet = new HttpGet("http://api.openweathermap.org/data/2.5/forecast?q=Moscow,ru");
+                httpGet = new HttpGet("http://infinigag.eu01.aws.af.cm/hot/0");
             }
 
             @Override
             protected ArrayList<String> doInBackground(ArrayList<String>... params) {
                 theList = params[0];
+                images = new ArrayList<>();
                 try {
                     HttpResponse response = httpClient.execute(httpGet);
 
@@ -72,17 +84,27 @@ public class MainActivity extends ActionBarActivity {
                     while((line = bufferedReader.readLine()) != null)
                         result += line;
                     JSONObject jsonResponse = new JSONObject(result);
-                    JSONArray forecastList = jsonResponse.optJSONArray("list");
-                    for(int i = theList.size()+1; i < forecastList.length(); i++){
+                    JSONArray forecastList = jsonResponse.optJSONArray("data");
+                    for(int i = theList.size(); i < forecastList.length(); i++){
                         JSONObject forecast = forecastList.getJSONObject(i);
-                        long date = forecast.optLong("dt");
+                        //long date = forecast.optLong("dt");
+                        String url = forecast.optJSONObject("images").optString("large");
+                        theList.add(url);
+                        System.out.println(theList.size());
+                        HttpURLConnection urlConnection = (HttpURLConnection)new URL(url).openConnection();
+                        InputStream inputStream = new URL(url).openConnection().getInputStream();
+                        if (inputStream != null) {
+                            Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
+                            if(bitmap != null )images.add(bitmap);
+                        }
 
-                        JSONObject artistName = forecast.optJSONObject("main");
-                        Double temp = artistName.optDouble("temp");
-                        temp-= 273;
-                        NumberFormat formatter = new DecimalFormat("#0.00");
+                        //new ImageDownloaderTask((ImageView) findViewById(R.id.rowImageView)).doInBackground(theList.toArray(new String[theList.size()]));
+                        //JSONObject artistName = forecast.optJSONObject("main");
+                        //Double temp = artistName.optDouble("temp");
+                        //temp-= 273;
+                        //NumberFormat formatter = new DecimalFormat("#0.00");
                         //arrayList.add(new SimpleDateFormat("d/m/y").format(new Date(date)) + " "+temp);
-                        theList.add(new SimpleDateFormat("EEE, MMM d").format(new Date(date*1000)) + " t: "+ formatter.format(temp));
+                        //theList.add(new SimpleDateFormat("EEE, MMM d").format(new Date(date*1000)) + " t: "+ formatter.format(temp));
                     }
                 } catch (ClientProtocolException e) {
                     e.printStackTrace();
@@ -96,13 +118,21 @@ public class MainActivity extends ActionBarActivity {
 
 
             protected void onPostExecute(ArrayList<String> result) {
-                //httpClient.getConnectionManager().closeExpiredConnections();
-                ArrayAdapter adapter = new ArrayAdapter(s, R.layout.simplerow, R.id.rowTextView,theList);
-                ((ListView)findViewById(R.id.listView)).setAdapter(adapter);
+                //ArrayAdapter adapter = new ArrayAdapter(s, R.layout.simplerow, R.id.rowTextView,theList);
+                //CustomListAdapter customListAdapter = new CustomListAdapter(s,theList);
+                final ListView listView = (ListView) findViewById(R.id.listView);
+                listView.setAdapter(new CustomListAdapter(s, images));
+                System.out.println("here111");
+                //((ListView) findViewById(R.id.listView)).setAdapter(customListAdapter);
+
             }
         };
 
         asyncTask.execute(arrayList);
+        //CustomListAdapter customListAdapter = new CustomListAdapter(this,theList);
+        System.out.println("here111");
+        //((ListView) findViewById(R.id.listView)).setAdapter(customListAdapter);
+
         //ArrayAdapter adapter = new ArrayAdapter(this, R.layout.simplerow, R.id.rowTextView,arrayList);
         //((ListView)findViewById(R.id.listView)).setAdapter(adapter);
     }
